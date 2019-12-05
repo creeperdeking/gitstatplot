@@ -19,18 +19,23 @@ import json
 from calendar import monthrange
 
 
-def get_efficiency_datas(date, repo_path, branch_name, verbose):
-    core_command_total = 'git -C '+repo_path+' log '+branch_name+
+def get_efficiency_datas(
+    date, repo_path, branch_name, verbose, dir, file_extension
+    ):
+    core_command_total = 'git -C '+repo_path+' log '+branch_name+\
         ' --before="'+date+'" --stat'
-    command_nb_changes_total = core_command +' | grep "\.gd *|" |'+
-        ' grep "game" | cut -d"|" -f 2 | cut -d"-" -f 1 | cut -d"+" -f 1 |'+
+    command_nb_changes_total = core_command_total +\
+        ' | grep "\.'+file_extension+' *|" |'+\
+        ' grep "'+dir+'" | cut -d"|" -f 2 | cut -d"-" -f 1 | cut -d"+" -f 1 |'+\
         ' paste -s -d+ | bc'
 
-    core_command_actual = 'git -C '+repo_path+' diff --stat `git -C '+
-        repo_path+' rev-list -1 --before="'+date+'" '+branch_name+'`  `git -C '+
+    core_command_actual = 'git -C '+repo_path+' diff --stat `git -C '+\
+        repo_path+' rev-list -1 --before="'+date+'" '+\
+        branch_name+'`  `git -C '+\
         repo_path+' rev-list '+branch_name+' | tail -n 1` '+branch_name
-    command_nb_changes_actual = core_command_actual+' | grep "\.gd *|" |'+
-        ' grep "game" | cut -d"|" -f 2 | cut -d"-" -f 1 | cut -d"+" -f 1 |'+
+    command_nb_changes_actual = core_command_actual+\
+        ' | grep "\.'+file_extension+' *|" |'+\
+        ' grep "'+dir+'" | cut -d"|" -f 2 | cut -d"-" -f 1 | cut -d"+" -f 1 |'+\
         ' paste -s -d+ | bc'
 
     result = os.popen(command_nb_changes_total).read()
@@ -52,15 +57,22 @@ def get_efficiency_datas(date, repo_path, branch_name, verbose):
 
 def print_help():
     print('Usage:')
-    print('\tplot.py GIT_REPOSITORY_PATH BRANCH_NAME [--show] [--recover] [-v]')
+    print('\tplot.py GIT_REPOSITORY_PATH BRANCH_NAME [--show] [--recover] [-v] [--step] [--file EXTENSION] [--dir DIR]')
     print('\nOptions')
     print(
-        '\t--recover: Will attempt to load data.txt to fetch previous datas'+
+        '\t--recover: Will attempt to load data.txt to fetch previous datas'+\
         'instead of generating new ones'
         )
     print('\t--show: Show the graph')
-    print('\t--v: Verbose')
+    print('\t-v: Verbose')
     print('\t--step NUM_STEP: How many days between each date? (default=16)')
+    print('\t--file EXTENSION: Only count for files with a certain EXTENSION')
+    print('\t--dir DIR: Only count for files with DIR as a parent directory')
+    print('\nExample:')
+    print(
+        '\t./gitstatplot.py ~/Documents/Projects/lapentrycoach_simulator'+\
+        'development-version2 --step 16 --show --dir game --file gd'
+        )
     quit()
 
 
@@ -100,6 +112,8 @@ def parse_arguments():
     repo_path = ''
     branch_name = ''
     step = 16
+    file_extension = ''
+    dir = ''
     if len(sys.argv) < 3:
         if len(sys.argv) == 2 and sys.argv[1] == '--help':
             print_help()
@@ -118,12 +132,18 @@ def parse_arguments():
                 show_plot = True
             elif arg == '--step':
                 step = int(sys.argv[i+1])
-    return recover_from_file, verbose, show_plot, repo_path, branch_name, step
+            elif arg == '--dir':
+                dir = sys.argv[i+1]
+            elif arg == '--file':
+                file_extension = sys.argv[i+1]
+
+    return recover_from_file, verbose, show_plot, repo_path, branch_name, step,\
+        dir, file_extension
 
 
 def main():
-    recover_from_file, verbose, show_plot,
-    repo_path, branch_name, step = parse_arguments()
+    recover_from_file, verbose, show_plot,\
+        repo_path, branch_name, step, dir, file_extension = parse_arguments()
 
     dates = []
     efficiencies = []
@@ -144,8 +164,10 @@ def main():
                     dates.append(date)
         print("num_dates: "+str(len(dates)))
         for date in dates:
-            efficiency, nb_changes_actual, nb_changes_total =
-                get_efficiency_datas(date, repo_path, branch_name, verbose)
+            efficiency, nb_changes_actual, nb_changes_total =\
+                get_efficiency_datas(
+                    date, repo_path, branch_name, verbose, dir, file_extension
+                    )
             efficiencies.append(efficiency*100)
             changes_actuals.append(nb_changes_actual)
             changes_totals.append(nb_changes_total)
